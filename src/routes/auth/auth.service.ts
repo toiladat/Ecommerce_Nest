@@ -2,7 +2,6 @@ import { RolesService } from './roles.service'
 import { TokenService } from 'src/shared/services/token.service'
 import { HashingService } from 'src/shared/services/hashing.service'
 import { ConflictException, Injectable, UnauthorizedException } from '@nestjs/common'
-import { LoginBodyDTO } from './auth.dto'
 import { isNotFoundPrismaError, isUniqueConstraintPrismaError } from 'src/shared/helpers'
 import { PrismaService } from 'src/shared/services/prisma.service'
 
@@ -41,7 +40,7 @@ export class AuthService {
     }
   }
 
-  async login(body: LoginBodyDTO) {
+  async login(body: any) {
     const user = await this.prismaService.user.findUnique({
       where: {
         email: body.email,

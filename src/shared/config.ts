@@ -1,7 +1,7 @@
 import { config } from 'dotenv'
 import fs from 'fs'
 import path from 'path'
-import * as z from 'zod'
+import { z } from 'zod'
 
 config({
   path: '.env',
@@ -19,7 +19,7 @@ const conifgSchema = z.object({
   REFRESH_TOKEN_SECRET: z.string(),
   REFRESH_TOKEN_EXPIRES_IN: z.string(),
   SECERET_API_KEY: z.string(),
-  
+
   ADMIN_NAME: z.string(),
   ADMIN_PASSWORD: z.string(),
   ADMIN_EMAIL: z.string(),
