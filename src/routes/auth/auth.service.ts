@@ -1,9 +1,13 @@
+import { SharedUserRepository } from './../../shared/repositories/shared-user.repo'
 import { AuthRepository } from './auth.repo'
 import { RolesService } from './roles.service'
 import { HashingService } from 'src/shared/services/hashing.service'
-import { ConflictException, Injectable } from '@nestjs/common'
-import { isUniqueConstraintPrismaError } from 'src/shared/helpers'
+import { ConflictException, Injectable, UnprocessableEntityException } from '@nestjs/common'
+import { generateOTP, isUniqueConstraintPrismaError } from 'src/shared/helpers'
 import { RegisterBodyType, SendOTPBodyType } from './auth.model'
+import { addMilliseconds } from 'date-fns'
+import envConfig from 'src/shared/config'
+import ms, { StringValue } from 'ms'
 
 @Injectable()
 export class AuthService {
@@ -11,6 +15,7 @@ export class AuthService {
     private readonly hashingService: HashingService,
     private readonly rolesService: RolesService,
     private readonly authRepository: AuthRepository,
+    private readonly sharedUserRepository: SharedUserRepository,
   ) {}
 
   async register(body: RegisterBodyType) {
@@ -32,9 +37,28 @@ export class AuthService {
     }
   }
 
-  sendTOP(body: SendOTPBodyType) {
-    return body
+  async sendTOP(body: SendOTPBodyType) {
+    //Kiểm tra user tồn tại
+    const user = await this.sharedUserRepository.findUnique({ email: body.email })
+    if (user)
+      throw new UnprocessableEntityException([
+        {
+          path: 'email',
+          message: 'Email already exist',
+        },
+      ])
+    const code = generateOTP()
+    const verificationCode = await this.authRepository.createVerificationCode({
+      email: body.email,
+      code,
+      type: body.type,
+      expiresAt: addMilliseconds(new Date(), ms(envConfig.OTP_EXPIRES_IN as StringValue) as number),
+    })
+    // gui email
+
+    return verificationCode
   }
+
   // async login(body: any) {
   //   const user = await this.prismaService.user.findUnique({
   //     where: {

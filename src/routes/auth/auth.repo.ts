@@ -1,6 +1,7 @@
 import { PrismaService } from 'src/shared/services/prisma.service'
 import { Injectable } from '@nestjs/common'
-import { RegisterBodyType, UserType } from './auth.model'
+import { RegisterBodyType, VerificationCodeType } from './auth.model'
+import { UserType } from 'src/shared/models/shared-user.model'
 
 @Injectable()
 export class AuthRepository {
@@ -15,6 +16,18 @@ export class AuthRepository {
         password: true,
         totpSecret: true,
       },
+    })
+  }
+
+  
+  async createVerificationCode (payload: Pick<VerificationCodeType, 'expiresAt' |'email' |'code'|'type'>): Promise<VerificationCodeType>{
+    return this.prismaService.verificationCode.upsert({
+      where: { email: payload.email},
+      create: payload,
+      update: {
+        code: payload.code,
+        expiresAt: payload.expiresAt
+      }
     })
   }
 }
