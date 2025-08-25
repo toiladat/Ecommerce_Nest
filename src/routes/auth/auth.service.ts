@@ -3,7 +3,7 @@ import { RolesService } from './roles.service'
 import { HashingService } from 'src/shared/services/hashing.service'
 import { ConflictException, Injectable } from '@nestjs/common'
 import { isUniqueConstraintPrismaError } from 'src/shared/helpers'
-import { RegisterBodyType } from './auth.model'
+import { RegisterBodyType, SendOTPBodyType } from './auth.model'
 
 @Injectable()
 export class AuthService {
@@ -32,6 +32,9 @@ export class AuthService {
     }
   }
 
+  sendTOP(body: SendOTPBodyType) {
+    return body
+  }
   // async login(body: any) {
   //   const user = await this.prismaService.user.findUnique({
   //     where: {
