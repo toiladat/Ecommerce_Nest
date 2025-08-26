@@ -25,7 +25,8 @@ const conifgSchema = z.object({
   ADMIN_EMAIL: z.string(),
   ADMIN_PHONE: z.string(),
 
-  OTP_EXPIRES_IN : z.string()
+  OTP_EXPIRES_IN: z.string(),
+  RESEND_API_KEY: z.string(),
 })
 
 const configServer = conifgSchema.safeParse(process.env)

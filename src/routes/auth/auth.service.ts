@@ -1,4 +1,5 @@
-import { SharedUserRepository } from './../../shared/repositories/shared-user.repo'
+import { EmailService } from 'src/shared/services/email.service'
+import { SharedUserRepository } from 'src/shared/repositories/shared-user.repo'
 import { AuthRepository } from './auth.repo'
 import { RolesService } from './roles.service'
 import { HashingService } from 'src/shared/services/hashing.service'
@@ -17,6 +18,7 @@ export class AuthService {
     private readonly rolesService: RolesService,
     private readonly authRepository: AuthRepository,
     private readonly sharedUserRepository: SharedUserRepository,
+    private readonly emailService: EmailService,
   ) {}
 
   async register(body: RegisterBodyType) {
@@ -77,7 +79,18 @@ export class AuthService {
       expiresAt: addMilliseconds(new Date(), ms(envConfig.OTP_EXPIRES_IN as StringValue) as number),
     })
     // gui email
-
+    const { error } = await this.emailService.sendOTP({
+      email: body.email,
+      code,
+    })
+    if (error) {
+      throw new UnprocessableEntityException([
+        {
+          message: 'Send OTP failure',
+          path: 'code',
+        },
+      ])
+    }
     return verificationCode
   }
 
