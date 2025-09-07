@@ -10,7 +10,7 @@ import {
   UnauthorizedException,
   UnprocessableEntityException,
 } from '@nestjs/common'
-import { generateOTP, isUniqueConstraintPrismaError } from 'src/shared/helpers'
+import { generateOTP, isNotFoundPrismaError, isUniqueConstraintPrismaError } from 'src/shared/helpers'
 import { LoginBodyType, RefreshTokenBodyType, RegisterBodyType, SendOTPBodyType } from './auth.model'
 import { addMilliseconds } from 'date-fns'
 import envConfig from 'src/shared/config'
@@ -81,7 +81,7 @@ export class AuthService {
         },
       ])
     const code = generateOTP()
-    const verificationCode = await this.authRepository.createVerificationCode({
+    await this.authRepository.createVerificationCode({
       email: body.email,
       code,
       type: body.type,
@@ -100,7 +100,7 @@ export class AuthService {
         },
       ])
     }
-    return verificationCode
+    return { message: 'Send OTP Successfully' }
   }
 
   async login(body: LoginBodyType & { userAgent: string; ip: string }) {
@@ -160,7 +160,7 @@ export class AuthService {
       const { userId } = await this.tokenService.verifyRefreshToken(refreshToken)
 
       const refreshTokenInDB = await this.authRepository.findUniqueRefreshTokenIncludeUserRole({ token: refreshToken })
-      
+
       if (!refreshTokenInDB) {
         throw new UnauthorizedException('Refresh token has been revoked')
       }
@@ -196,16 +196,15 @@ export class AuthService {
     }
   }
 
-  // async logout(refreshToken: string) {
-  //   try {
-  //     await this.tokenService.verifyRefreshToken(refreshToken)
-  //     await this.prismaService.refreshToken.delete({
-  //       where: { token: refreshToken },
-  //     })
-  //     return { message: 'Logout successfully' }
-  //   } catch (error) {
-  //     if (isNotFoundPrismaError(error)) throw new UnauthorizedException('Refresh token has been revoked')
-  //     throw new UnauthorizedException()
-  //   }
-  // }
+  async logout(refreshToken: string) {
+    try {
+      await this.tokenService.verifyRefreshToken(refreshToken)
+      const deletedRefreshToken = await this.authRepository.deleteRefreshToken({ token: refreshToken })
+      await this.authRepository.updateDevice(deletedRefreshToken.deviceId, { isActive: false })
+      return { message: 'Logout successfully' }
+    } catch (error) {            
+      if (isNotFoundPrismaError(error)) throw new UnauthorizedException('Refresh token has been revoked')
+      throw new UnauthorizedException()
+    }
+  }
 }

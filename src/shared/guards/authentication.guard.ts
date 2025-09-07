@@ -20,31 +20,34 @@ export class AuthenticationGuard implements CanActivate {
     }
   }
   async canActivate(context: ExecutionContext): Promise<boolean> {
-
-    //Nếu không truyền Decorator @Auth thì mặc định là None
     const authTypeValue = this.reflector.getAllAndOverride<AuthTypeDecoratorPayload | undefined>(AUTH_TYPE_KEY, [
-      context.getHandler(), // tìm decorator Auth trong method của xController
-      context.getClass(), // nếu không thấy thì tìm ở Class xController
-    ]) ?? { authTypes: [AuthType.None], options: { condition: ConditionGuard.And } }
+      context.getHandler(),
+      context.getClass(),
+    ]) ?? { authTypes: [AuthType.Bearer], options: { condition: ConditionGuard.And } }
 
     const guards = authTypeValue.authTypes.map((authType) => this.authTypeGuardMap[authType])
     let error = new UnauthorizedException()
+
     if (authTypeValue.options.condition === ConditionGuard.Or) {
       for (const instance of guards) {
-        const canActive = await Promise.resolve(instance.canActivate(context)).catch((err) => {
+        const canActivate = await Promise.resolve(instance.canActivate(context)).catch((err) => {
           error = err
           return false
         })
-        if (canActive) return true
+        if (canActivate) {
+          return true
+        }
       }
       throw error
     } else {
       for (const instance of guards) {
-        const canActive = await Promise.resolve(instance.canActivate(context)).catch((err) => {
+        const canActivate = await Promise.resolve(instance.canActivate(context)).catch((err) => {
           error = err
           return false
         })
-        if (!canActive) throw error
+        if (!canActivate) {
+          throw new UnauthorizedException()
+        }
       }
       return true
     }
