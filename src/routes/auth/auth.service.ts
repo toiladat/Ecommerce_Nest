@@ -202,7 +202,7 @@ export class AuthService {
       const deletedRefreshToken = await this.authRepository.deleteRefreshToken({ token: refreshToken })
       await this.authRepository.updateDevice(deletedRefreshToken.deviceId, { isActive: false })
       return { message: 'Logout successfully' }
-    } catch (error) {            
+    } catch (error) {
       if (isNotFoundPrismaError(error)) throw new UnauthorizedException('Refresh token has been revoked')
       throw new UnauthorizedException()
     }

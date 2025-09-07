@@ -12,9 +12,11 @@ import {
   SendOTPBodyDTO,
 } from './auth.dto'
 import { AuthService } from './auth.service'
-import { Body, Controller, Get, HttpCode, HttpStatus, Ip, Post } from '@nestjs/common'
+import { Body, Controller, Get, HttpCode, HttpStatus, Ip, Post, Query, Res } from '@nestjs/common'
 import { MessageResDTO } from 'src/shared/dtos/response.dto'
 import { IsPublic } from 'src/shared/decorators/auth.decorator'
+import { Response } from 'express'
+import envConfig from 'src/shared/config'
 
 @Controller('auth')
 export class AuthController {
@@ -71,5 +73,19 @@ export class AuthController {
   @ZodSerializerDto(GetAuthorizationUrlResDTO)
   getGoogleLink(@UserAgent() userAgent: string, @Ip() ip: string) {
     return this.googleService.geAuthorizationUrl({ userAgent, ip })
+  }
+
+  @Get('google/callback')
+  @IsPublic()
+  async googleCallback(@Query('code') code: string, @Query('state') state: string, @Res() res: Response) {
+    try {
+      const data = await this.googleService.googleCallback({ code, state })
+      return res.redirect(
+        `${envConfig.GOOGLE_CLIENT_REDIRECT_URI}?accessToken=${data.accessToken}&refreshToken=${data.refreshToken}`,
+      )
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Login using Google failure, please try again'
+      return res.redirect(`${envConfig.GOOGLE_CLIENT_REDIRECT_URI}?errorMessage=${message}`)
+    }
   }
 }
