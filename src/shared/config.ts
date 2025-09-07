@@ -27,6 +27,11 @@ const conifgSchema = z.object({
 
   OTP_EXPIRES_IN: z.string(),
   RESEND_API_KEY: z.string(),
+
+  GOOGLE_CLIENT_ID: z.string(),
+  GOOGLE_CLIENT_SECERET: z.string(),
+  GOOGLE_REDIRECT_URI: z.string(),
+  GOOGLE_CLIENT_REDIRECT_URI: z.string(),
 })
 
 const configServer = conifgSchema.safeParse(process.env)
