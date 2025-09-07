@@ -3,9 +3,15 @@ import { SharedUserRepository } from 'src/shared/repositories/shared-user.repo'
 import { AuthRepository } from './auth.repo'
 import { RolesService } from './roles.service'
 import { HashingService } from 'src/shared/services/hashing.service'
-import { ConflictException, Injectable, UnprocessableEntityException } from '@nestjs/common'
+import {
+  ConflictException,
+  HttpException,
+  Injectable,
+  UnauthorizedException,
+  UnprocessableEntityException,
+} from '@nestjs/common'
 import { generateOTP, isUniqueConstraintPrismaError } from 'src/shared/helpers'
-import { LoginBodyType, RegisterBodyType, SendOTPBodyType } from './auth.model'
+import { LoginBodyType, RefreshTokenBodyType, RegisterBodyType, SendOTPBodyType } from './auth.model'
 import { addMilliseconds } from 'date-fns'
 import envConfig from 'src/shared/config'
 import ms, { StringValue } from 'ms'
@@ -118,15 +124,16 @@ export class AuthService {
         },
       ])
     }
-    const device =  await this.authRepository.createDevice({
+    const device = await this.authRepository.createDevice({
       userId: user.id,
       ip: body.ip,
       userAgent: body.userAgent,
     })
-    const tokens = await this.generateTokens({ userId: user.id,
+    const tokens = await this.generateTokens({
+      userId: user.id,
       deviceId: device.id,
       roleId: user.roleId,
-      roleName: user.role.name
+      roleName: user.role.name,
     })
     return tokens
   }
@@ -147,24 +154,47 @@ export class AuthService {
     return { accessToken, refreshToken }
   }
 
-  // async refreshToken(refreshToken: string) {
-  //   try {
-  //     const { userId } = await this.tokenService.verifyRefreshToken(refreshToken)
+  async refreshToken({ refreshToken, userAgent, ip }: RefreshTokenBodyType & { userAgent: string; ip: string }) {
+    try {
+      //Kiểm tra token hợp lệ
+      const { userId } = await this.tokenService.verifyRefreshToken(refreshToken)
 
-  //     await this.prismaService.refreshToken.findUniqueOrThrow({
-  //       where: { token: refreshToken },
-  //     })
+      const refreshTokenInDB = await this.authRepository.findUniqueRefreshTokenIncludeUserRole({ token: refreshToken })
+      
+      if (!refreshTokenInDB) {
+        throw new UnauthorizedException('Refresh token has been revoked')
+      }
+      const {
+        deviceId,
+        user: {
+          roleId,
+          role: { name: roleName },
+        },
+      } = refreshTokenInDB
+      //Cập nhật device
+      const $updateDevice = this.authRepository.updateDevice(deviceId, {
+        ip,
+        userAgent,
+      })
 
-  //     await this.prismaService.refreshToken.delete({
-  //       where: { token: refreshToken },
-  //     })
-  //     return this.generateTokens({ userId })
-  //   } catch (error) {
-  //     // Trường hợp đã refreshToken rồi
-  //     if (isNotFoundPrismaError(error)) throw new UnauthorizedException('Refresh token has been revoked')
-  //     throw new UnauthorizedException()
-  //   }
-  // }
+      //Xóa RT cũ
+      const $deleteRefreshToken = this.authRepository.deleteRefreshToken({
+        token: refreshToken,
+      })
+
+      //Tạo AT và RT mới và cập nhật
+      const $token = this.generateTokens({ userId, deviceId, roleId, roleName })
+
+      const [, , tokens] = await Promise.all([$updateDevice, $deleteRefreshToken, $token])
+      return tokens
+    } catch (error) {
+      // mặc định throw UnauthorizedException là instaneOf HttpException
+      if (error instanceof HttpException) {
+        throw error
+      }
+      throw new UnauthorizedException()
+    }
+  }
 
   // async logout(refreshToken: string) {
   //   try {
