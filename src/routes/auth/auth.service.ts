@@ -3,13 +3,7 @@ import { SharedUserRepository } from 'src/shared/repositories/shared-user.repo'
 import { AuthRepository } from './auth.repo'
 import { RolesService } from './roles.service'
 import { HashingService } from 'src/shared/services/hashing.service'
-import {
-  ConflictException,
-  HttpException,
-  Injectable,
-  UnauthorizedException,
-  UnprocessableEntityException,
-} from '@nestjs/common'
+import { HttpException, Injectable } from '@nestjs/common'
 import { generateOTP, isNotFoundPrismaError, isUniqueConstraintPrismaError } from 'src/shared/helpers'
 import { LoginBodyType, RefreshTokenBodyType, RegisterBodyType, SendOTPBodyType } from './auth.model'
 import { addMilliseconds } from 'date-fns'
@@ -18,6 +12,16 @@ import ms, { StringValue } from 'ms'
 import { TypeOfVerificationCode } from 'src/shared/constants/auth.constant'
 import { TokenService } from 'src/shared/services/token.service'
 import { AccessTokenPayloadCreate } from 'src/shared/types/jwt.type'
+import {
+  EmailAlreadyExistsException,
+  EmailNotFoundException,
+  FailedToSendOTPException,
+  InvalidOTPException,
+  InvalidPasswordException,
+  OTPExpiredException,
+  RefreshTokenAlreadyUsedException,
+  UnauthorizedAccessException,
+} from 'src/routes/auth/error.model'
 
 @Injectable()
 export class AuthService {
@@ -38,20 +42,10 @@ export class AuthService {
         type: TypeOfVerificationCode.REGISTER,
       })
       if (!verificationCode) {
-        throw new UnprocessableEntityException([
-          {
-            message: 'OTP not valid',
-            path: 'code',
-          },
-        ])
+        throw InvalidOTPException
       }
       if (verificationCode.expiresAt < new Date()) {
-        throw new UnprocessableEntityException([
-          {
-            message: 'OTP expired',
-            path: 'code',
-          },
-        ])
+        throw OTPExpiredException
       }
       const clientRoleId = await this.rolesService.getClientRoleId()
       const hashPassword = await this.hashingService.hash(body.password)
@@ -64,7 +58,7 @@ export class AuthService {
       })
     } catch (error) {
       if (isUniqueConstraintPrismaError(error)) {
-        throw new ConflictException('Email alredy exist')
+        throw EmailAlreadyExistsException
       }
       throw error
     }
@@ -73,13 +67,8 @@ export class AuthService {
   async sendTOP(body: SendOTPBodyType) {
     //Kiểm tra user tồn tại
     const user = await this.sharedUserRepository.findUnique({ email: body.email })
-    if (user)
-      throw new UnprocessableEntityException([
-        {
-          path: 'email',
-          message: 'Email already exist',
-        },
-      ])
+    if (user) throw EmailAlreadyExistsException
+
     const code = generateOTP()
     await this.authRepository.createVerificationCode({
       email: body.email,
@@ -93,12 +82,7 @@ export class AuthService {
       code,
     })
     if (error) {
-      throw new UnprocessableEntityException([
-        {
-          message: 'Send OTP failure',
-          path: 'code',
-        },
-      ])
+      throw FailedToSendOTPException
     }
     return { message: 'Send OTP Successfully' }
   }
@@ -108,21 +92,11 @@ export class AuthService {
       email: body.email,
     })
     if (!user) {
-      throw new UnprocessableEntityException([
-        {
-          path: 'email',
-          message: 'Email is not exist',
-        },
-      ])
+      throw EmailNotFoundException
     }
     const isPasswordMatch = await this.hashingService.compare(body.password, user.password)
     if (!isPasswordMatch) {
-      throw new UnprocessableEntityException([
-        {
-          field: 'password',
-          error: 'Password is incorrect',
-        },
-      ])
+      throw InvalidPasswordException
     }
     const device = await this.authRepository.createDevice({
       userId: user.id,
@@ -162,7 +136,7 @@ export class AuthService {
       const refreshTokenInDB = await this.authRepository.findUniqueRefreshTokenIncludeUserRole({ token: refreshToken })
 
       if (!refreshTokenInDB) {
-        throw new UnauthorizedException('Refresh token has been revoked')
+        throw RefreshTokenAlreadyUsedException
       }
       const {
         deviceId,
@@ -192,7 +166,7 @@ export class AuthService {
       if (error instanceof HttpException) {
         throw error
       }
-      throw new UnauthorizedException()
+      throw UnauthorizedAccessException
     }
   }
 
@@ -203,8 +177,9 @@ export class AuthService {
       await this.authRepository.updateDevice(deletedRefreshToken.deviceId, { isActive: false })
       return { message: 'Logout successfully' }
     } catch (error) {
-      if (isNotFoundPrismaError(error)) throw new UnauthorizedException('Refresh token has been revoked')
-      throw new UnauthorizedException()
+      if (isNotFoundPrismaError(error)) throw RefreshTokenAlreadyUsedException
+
+      throw UnauthorizedAccessException
     }
   }
 }

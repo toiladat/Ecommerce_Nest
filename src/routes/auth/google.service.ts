@@ -8,6 +8,7 @@ import { google } from 'googleapis'
 import envConfig from 'src/shared/config'
 import { GoogleAuthStateType } from './auth.model'
 import { v4 as uuidv4 } from 'uuid'
+import { GoogleUserInfoError } from './error.model'
 @Injectable()
 export class GoogleService {
   private oauth2Client: OAuth2Client
@@ -71,7 +72,7 @@ export class GoogleService {
       const { data } = await oauth2.userinfo.get()
 
       if (!data.email) {
-        throw new Error('Can not get user infor from google')
+        throw GoogleUserInfoError
       }
 
       //Phải include Role vì ở trên data trả về là userIncludeRole
@@ -109,7 +110,7 @@ export class GoogleService {
       return authTokens
     } catch (error) {
       console.log(error)
-      throw Error('Login using Google failure')
+      throw error
     }
   }
 }
