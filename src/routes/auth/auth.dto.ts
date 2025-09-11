@@ -1,5 +1,6 @@
 import { createZodDto } from 'nestjs-zod'
 import {
+  ForgotPasswordBodySchema,
   GetAuthorizationUrlSchema,
   LoginBodySchema,
   LoginResSchema,
@@ -26,4 +27,6 @@ export class RefreshTokenResDTO extends createZodDto(RefreshTokenResSchema) {}
 
 export class LogoutBodyDTO extends createZodDto(LogoutBodySchema) {}
 
-export class GetAuthorizationUrlResDTO extends createZodDto(GetAuthorizationUrlSchema){}
+export class GetAuthorizationUrlResDTO extends createZodDto(GetAuthorizationUrlSchema) {}
+
+export class ForgotPasswordBodyDTO extends createZodDto(ForgotPasswordBodySchema) {}

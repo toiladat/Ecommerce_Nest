@@ -2,6 +2,7 @@ import { GoogleService } from './google.service'
 import { UserAgent } from './../../shared/decorators/user-agent.decorator'
 import { ZodSerializerDto } from 'nestjs-zod'
 import {
+  ForgotPasswordBodyDTO,
   GetAuthorizationUrlResDTO,
   LoginBodyDTO,
   LoginResDTO,
@@ -87,5 +88,12 @@ export class AuthController {
       const message = error instanceof Error ? error.message : 'Login using Google failure, please try again'
       return res.redirect(`${envConfig.GOOGLE_CLIENT_REDIRECT_URI}?errorMessage=${message}`)
     }
+  }
+
+  @Post('forgot-password')
+  @IsPublic()
+  @ZodSerializerDto(MessageResDTO)
+  forgotPassword(@Body() body: ForgotPasswordBodyDTO) {
+    return this.authService.forgotPassword(body)
   }
 }
