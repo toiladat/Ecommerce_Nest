@@ -1,5 +1,6 @@
 import { createZodDto } from 'nestjs-zod'
 import {
+  DisableTwoFactorBodySchema,
   ForgotPasswordBodySchema,
   GetAuthorizationUrlSchema,
   LoginBodySchema,
@@ -10,6 +11,7 @@ import {
   RegisterBodySchema,
   RegisterResSchema,
   SendOTPBodySchema,
+  TwoFactorSetupResSchema,
 } from './auth.model'
 
 //NestJS mặc định chỉ biết validate bằng class-validator (ValidationPipe).
@@ -30,3 +32,7 @@ export class LogoutBodyDTO extends createZodDto(LogoutBodySchema) {}
 export class GetAuthorizationUrlResDTO extends createZodDto(GetAuthorizationUrlSchema) {}
 
 export class ForgotPasswordBodyDTO extends createZodDto(ForgotPasswordBodySchema) {}
+
+export class TwoFactorSetupResDTO extends createZodDto(TwoFactorSetupResSchema) {}
+
+export class DisableTwoFactorBodyDTO extends createZodDto(DisableTwoFactorBodySchema) {}

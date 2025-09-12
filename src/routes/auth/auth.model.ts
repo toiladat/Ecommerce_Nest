@@ -32,7 +32,12 @@ export const VerificationCodeSchema = z.object({
   id: z.number(),
   email: z.string().email(),
   code: z.string().length(6),
-  type: z.enum([TypeOfVerificationCode.REGISTER, TypeOfVerificationCode.FORGOT_PASSWORD]),
+  type: z.enum([
+    TypeOfVerificationCode.REGISTER,
+    TypeOfVerificationCode.FORGOT_PASSWORD,
+    TypeOfVerificationCode.LOGIN,
+    TypeOfVerificationCode.DISABLE_2FA,
+  ]),
   expiresAt: z.date(),
   createdAt: z.date(),
 })
@@ -45,7 +50,12 @@ export const SendOTPBodySchema = VerificationCodeSchema.pick({
 export const LoginBodySchema = UserSchema.pick({
   email: true,
   password: true,
-}).strict()
+})
+  .extend({
+    totpCode: z.string().length(6).optional(), //2FA code
+    code: z.string().length(6).optional(), // Email OTP code
+  })
+  .strict()
 
 export const LoginResSchema = z.object({
   accessToken: z.string(),
@@ -119,6 +129,33 @@ export const ForgotPasswordBodySchema = z
     }
   })
 
+export const DisableTwoFactorBodySchema = z
+  .object({
+    totpCode: z.string().length(6).optional(), //2FA code
+    code: z.string().length(6).optional(), // Email OTP code
+  })
+  .strict()
+  .superRefine(({ totpCode, code }, ctx) => {
+    // Nếu cả 2 đều có hoặc không có
+    if ((totpCode != undefined) === (code != undefined)) {
+      ctx.addIssue({
+        path: ['totpCode'],
+        message: 'Have to provide otp or 2FA code',
+        code: 'custom',
+      })
+      ctx.addIssue({
+        path: ['code'],
+        message: 'Have to provide otp or 2FA code',
+        code: 'custom',
+      })
+    }
+  })
+
+export const TwoFactorSetupResSchema = z.object({
+  secret: z.string(),
+  url: z.string(),
+})
+
 export type RegisterBodyType = z.infer<typeof RegisterBodySchema>
 export type RegisterResType = z.infer<typeof RegisterResSchema>
 export type VerificationCodeType = z.infer<typeof VerificationCodeSchema>
@@ -134,3 +171,5 @@ export type LogoutBodyType = RefreshTokenBodyType
 export type GoogleAuthStateType = z.infer<typeof GoogleAuthStateSchema>
 export type GetAuthorizationUrlType = z.infer<typeof GetAuthorizationUrlSchema>
 export type ForgotPasswordBodyType = z.infer<typeof ForgotPasswordBodySchema>
+export type DisableTwoFactorBodyType = z.infer<typeof DisableTwoFactorBodySchema>
+export type TwoFactorSetupResType = z.infer<typeof TwoFactorSetupResSchema>

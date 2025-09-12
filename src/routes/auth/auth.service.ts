@@ -42,17 +42,16 @@ export class AuthService {
 
   async validateVerificationCode({
     email,
-    code,
     type,
   }: {
     email: string
-    code: string
     type: TypeOfVerificationCodeType
   }) {
     const verificationCode = await this.authRepository.findUniqueVerificationCode({
-      email: email,
-      code: code,
-      type: type,
+      email_type: {
+        email: email,
+        type: type,
+      },
     })
     if (!verificationCode) {
       throw InvalidOTPException
@@ -67,7 +66,6 @@ export class AuthService {
     try {
       await this.validateVerificationCode({
         email: body.email,
-        code: body.code,
         type: TypeOfVerificationCode.REGISTER,
       })
 
@@ -83,9 +81,10 @@ export class AuthService {
           password: hashPassword,
         }),
         await this.authRepository.deleteVerificationCode({
+          email_type: {
           email: body.email,
-          code: body.code,
           type: TypeOfVerificationCode.REGISTER,
+        }
         }),
       ])
       return user
@@ -218,7 +217,7 @@ export class AuthService {
   }
 
   async forgotPassword(body: ForgotPasswordBodyType) {
-    const { email, code, newPassword } = body
+    const { email, newPassword } = body
     // Kiểm tra email có db
 
     const user = await this.sharedUserRepository.findUnique({
@@ -229,7 +228,6 @@ export class AuthService {
     // kiểm tra otp hợp lệ
     await this.validateVerificationCode({
       email,
-      code,
       type: TypeOfVerificationCode.FORGOT_PASSWORD,
     })
 
@@ -245,10 +243,11 @@ export class AuthService {
       ),
       // xóa otp
       await this.authRepository.deleteVerificationCode({
-        email: body.email,
-        code: body.code,
+      email_type: {
+        email: email,
         type: TypeOfVerificationCode.FORGOT_PASSWORD,
-      }),
+      },
+    }),
     ])
     return {
       message: 'Password changed successfully',
