@@ -25,6 +25,7 @@ import {
   FailedToSendOTPException,
   InvalidOTPException,
   InvalidPasswordException,
+  InvalidTOTPAndCodeException,
   OTPExpiredException,
   RefreshTokenAlreadyUsedException,
   TOTPAlreadyEnableException,
@@ -43,26 +44,27 @@ export class AuthService {
     private readonly twoFactorService: TwoFactorService,
   ) {}
 
-  async validateVerificationCode({ email, type }: { email: string; type: TypeOfVerificationCodeType }) {
-    const verificationCode = await this.authRepository.findUniqueVerificationCode({
+  async validateVerificationCode({ email,code, type }: { email: string; code: string, type: TypeOfVerificationCodeType }) {
+    const vevificationCode = await this.authRepository.findUniqueVerificationCode({
       email_type: {
         email: email,
         type: type,
       },
     })
-    if (!verificationCode) {
+    if (!vevificationCode || vevificationCode.code !== code) {
       throw InvalidOTPException
     }
-    if (verificationCode.expiresAt < new Date()) {
+    if (vevificationCode.expiresAt < new Date()) {
       throw OTPExpiredException
     }
-    return verificationCode
+    return vevificationCode
   }
 
   async register(body: RegisterBodyType) {
     try {
       await this.validateVerificationCode({
         email: body.email,
+        code:body.code,
         type: TypeOfVerificationCode.REGISTER,
       })
 
@@ -121,13 +123,43 @@ export class AuthService {
     const user = await this.authRepository.findUniqueUserIncludeRole({
       email: body.email,
     })
+
     if (!user) {
       throw EmailNotFoundException
     }
+
     const isPasswordMatch = await this.hashingService.compare(body.password, user.password)
     if (!isPasswordMatch) {
       throw InvalidPasswordException
     }
+
+    // Nếu user đã bật 2FA thì kiểm tra 2FA TOTP code hoặc OTP code (email)
+    if (user.totpSecret) {
+      //Nếu không có totp code và code thì thông báo cho client biết
+      if (!body.totpCode && !body.code) throw InvalidTOTPAndCodeException
+
+      // Kiểm tra TOTP code hợp lệ
+
+      if (body.totpCode) {
+        const isValid = this.twoFactorService.verifyTOTP({
+          email: user.email,
+          secret: user.totpSecret,
+          token: body.totpCode
+        })
+
+        if (!isValid) throw InvalidOTPException
+      }
+      else if (body.code) {
+        //Kiểm tra otp có hợp lê không
+        await this.validateVerificationCode({
+          email: user.email,
+          code:body.code,
+          type: TypeOfVerificationCode.LOGIN
+        })
+      }
+    }
+
+    // Tạo device
     const device = await this.authRepository.createDevice({
       userId: user.id,
       ip: body.ip,
@@ -225,6 +257,7 @@ export class AuthService {
     // kiểm tra otp hợp lệ
     await this.validateVerificationCode({
       email,
+      code: body.code,
       type: TypeOfVerificationCode.FORGOT_PASSWORD,
     })
 
@@ -263,7 +296,7 @@ export class AuthService {
     if (user.totpSecret) {
       throw TOTPAlreadyEnableException
     }
-    
+
     // Tạo secret và uri
     const { secret, uri } = this.twoFactorService.generateTOTPSecrete(user.email)
 
