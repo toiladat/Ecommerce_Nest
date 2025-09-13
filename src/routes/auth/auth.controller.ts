@@ -2,6 +2,7 @@ import { GoogleService } from './google.service'
 import { UserAgent } from './../../shared/decorators/user-agent.decorator'
 import { ZodSerializerDto } from 'nestjs-zod'
 import {
+  DisableTwoFactorBodyDTO,
   ForgotPasswordBodyDTO,
   GetAuthorizationUrlResDTO,
   LoginBodyDTO,
@@ -100,11 +101,18 @@ export class AuthController {
     return this.authService.forgotPassword(body)
   }
 
-
   @Post('2fa/setup')
   @ZodSerializerDto(TwoFactorSetupResDTO)
-  setupTwoFactorAuth (@Body() _: EmptyBodyDTO, @ActivateUser('userId') userid: number){
-    return this.authService.setupTwoFactorAuth(userid)
+  setupTwoFactorAuth(@Body() _: EmptyBodyDTO, @ActivateUser('userId') userId: number) {
+    return this.authService.setupTwoFactorAuth(userId)
   }
 
+  @Post('2fa/disable')
+  @ZodSerializerDto(MessageResDTO)
+  disableTwoFactorAuth(@Body() body: DisableTwoFactorBodyDTO, @ActivateUser('userId') userId: number) {
+    return this.authService.disableTwoFactorAuth({
+      ...body,
+      userId,
+    })
+  }
 }

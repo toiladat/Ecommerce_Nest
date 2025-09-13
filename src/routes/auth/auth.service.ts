@@ -7,6 +7,7 @@ import { HashingService } from 'src/shared/services/hashing.service'
 import { HttpException, Injectable } from '@nestjs/common'
 import { generateOTP, isNotFoundPrismaError, isUniqueConstraintPrismaError } from 'src/shared/helpers'
 import {
+  DisableTwoFactorBodyType,
   ForgotPasswordBodyType,
   LoginBodyType,
   RefreshTokenBodyType,
@@ -26,9 +27,11 @@ import {
   InvalidOTPException,
   InvalidPasswordException,
   InvalidTOTPAndCodeException,
+  InvalidTOTPException,
   OTPExpiredException,
   RefreshTokenAlreadyUsedException,
   TOTPAlreadyEnableException,
+  TOTPNotEnableException,
   UnauthorizedAccessException,
 } from 'src/routes/auth/error.model'
 
@@ -44,7 +47,15 @@ export class AuthService {
     private readonly twoFactorService: TwoFactorService,
   ) {}
 
-  async validateVerificationCode({ email,code, type }: { email: string; code: string, type: TypeOfVerificationCodeType }) {
+  async validateVerificationCode({
+    email,
+    code,
+    type,
+  }: {
+    email: string
+    code: string
+    type: TypeOfVerificationCodeType
+  }) {
     const vevificationCode = await this.authRepository.findUniqueVerificationCode({
       email_type: {
         email: email,
@@ -64,7 +75,7 @@ export class AuthService {
     try {
       await this.validateVerificationCode({
         email: body.email,
-        code:body.code,
+        code: body.code,
         type: TypeOfVerificationCode.REGISTER,
       })
 
@@ -144,17 +155,16 @@ export class AuthService {
         const isValid = this.twoFactorService.verifyTOTP({
           email: user.email,
           secret: user.totpSecret,
-          token: body.totpCode
+          token: body.totpCode,
         })
 
         if (!isValid) throw InvalidOTPException
-      }
-      else if (body.code) {
+      } else if (body.code) {
         //Kiểm tra otp có hợp lê không
         await this.validateVerificationCode({
           email: user.email,
-          code:body.code,
-          type: TypeOfVerificationCode.LOGIN
+          code: body.code,
+          type: TypeOfVerificationCode.LOGIN,
         })
       }
     }
@@ -311,4 +321,36 @@ export class AuthService {
     // Trả về
     return { secret, uri }
   }
+
+  async disableTwoFactorAuth(data: DisableTwoFactorBodyType & { userId: number }) {
+    const { userId, totpCode, code } = data
+    const user = await this.sharedUserRepository.findUnique({
+      id: userId,
+    })
+    if (!user) throw EmailNotFoundException
+    if (!user.totpSecret) throw TOTPNotEnableException
+
+    // Kiểm tra totp hợp lệ không
+    if (totpCode) {
+      const isValid = this.twoFactorService.verifyTOTP({
+        email: user.email,
+        secret: user.totpSecret,
+        token: totpCode,
+      })
+      if (!isValid) throw InvalidTOTPException
+    } else if (code) {
+      await this.validateVerificationCode({
+        email: user.email,
+        code,
+        type: TypeOfVerificationCode.DISABLE_2FA,
+      })
+    }
+
+    //Cập nhật secret thành null
+    await this.authRepository.updateUser({id: userId}, {totpSecret: null})
+    return {
+      message: 'Turn off 2FA successfully'
+    }
+  }
+
 }
