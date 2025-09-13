@@ -1,3 +1,4 @@
+import { TwoFactorService } from './../../shared/services/2fa.service'
 import { EmailService } from 'src/shared/services/email.service'
 import { SharedUserRepository } from 'src/shared/repositories/shared-user.repo'
 import { AuthRepository } from './auth.repo'
@@ -26,6 +27,7 @@ import {
   InvalidPasswordException,
   OTPExpiredException,
   RefreshTokenAlreadyUsedException,
+  TOTPAlreadyEnableException,
   UnauthorizedAccessException,
 } from 'src/routes/auth/error.model'
 
@@ -38,15 +40,10 @@ export class AuthService {
     private readonly sharedUserRepository: SharedUserRepository,
     private readonly emailService: EmailService,
     private readonly tokenService: TokenService,
+    private readonly twoFactorService: TwoFactorService,
   ) {}
 
-  async validateVerificationCode({
-    email,
-    type,
-  }: {
-    email: string
-    type: TypeOfVerificationCodeType
-  }) {
+  async validateVerificationCode({ email, type }: { email: string; type: TypeOfVerificationCodeType }) {
     const verificationCode = await this.authRepository.findUniqueVerificationCode({
       email_type: {
         email: email,
@@ -82,9 +79,9 @@ export class AuthService {
         }),
         await this.authRepository.deleteVerificationCode({
           email_type: {
-          email: body.email,
-          type: TypeOfVerificationCode.REGISTER,
-        }
+            email: body.email,
+            type: TypeOfVerificationCode.REGISTER,
+          },
         }),
       ])
       return user
@@ -243,14 +240,42 @@ export class AuthService {
       ),
       // xóa otp
       await this.authRepository.deleteVerificationCode({
-      email_type: {
-        email: email,
-        type: TypeOfVerificationCode.FORGOT_PASSWORD,
-      },
-    }),
+        email_type: {
+          email: email,
+          type: TypeOfVerificationCode.FORGOT_PASSWORD,
+        },
+      }),
     ])
     return {
       message: 'Password changed successfully',
     }
+  }
+
+  async setupTwoFactorAuth(userId: number) {
+    // Lấy thông tin user ( đã tồn tại & bật 2FA chưa)
+    const user = await this.sharedUserRepository.findUnique({
+      id: userId,
+    })
+    if (!user) {
+      throw EmailNotFoundException
+    }
+
+    if (user.totpSecret) {
+      throw TOTPAlreadyEnableException
+    }
+    
+    // Tạo secret và uri
+    const { secret, uri } = this.twoFactorService.generateTOTPSecrete(user.email)
+
+    // Cập nhật secret vào user
+    await this.authRepository.updateUser(
+      {
+        id: userId,
+      },
+      { totpSecret: secret },
+    )
+
+    // Trả về
+    return { secret, uri }
   }
 }

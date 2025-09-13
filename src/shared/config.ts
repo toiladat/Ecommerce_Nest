@@ -32,6 +32,7 @@ const conifgSchema = z.object({
   GOOGLE_CLIENT_SECERET: z.string(),
   GOOGLE_REDIRECT_URI: z.string(),
   GOOGLE_CLIENT_REDIRECT_URI: z.string(),
+  APP_NAME: z.string()
 })
 
 const configServer = conifgSchema.safeParse(process.env)
