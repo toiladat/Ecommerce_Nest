@@ -7,10 +7,11 @@ import CustomZodValidationPipe from './shared/pipes/custom-zod-validation.pipe'
 import { ZodSerializerInterceptor } from 'nestjs-zod'
 import { APP_FILTER, APP_INTERCEPTOR, APP_PIPE } from '@nestjs/core'
 import { HttpExceptionFilter } from './shared/filters/http-exception.filter'
+import { LanguageModule } from './routes/language/language.module'
 // import { CatchEverythingFilter } from './shared/filters/catch-everything.filter'
 
 @Module({
-  imports: [SharedModule, AuthModule],
+  imports: [SharedModule, AuthModule, LanguageModule],
   controllers: [AppController],
   providers: [
     AppService,
@@ -25,8 +26,8 @@ import { HttpExceptionFilter } from './shared/filters/http-exception.filter'
       useClass: ZodSerializerInterceptor,
     },
     {
-      provide: APP_FILTER,//bắt và xử lý mọi exception trên toàn ứng dụng, không cần khai báo lại từng chỗ.
-      useClass: HttpExceptionFilter
+      provide: APP_FILTER, //bắt và xử lý mọi exception trên toàn ứng dụng, không cần khai báo lại từng chỗ.
+      useClass: HttpExceptionFilter,
     },
     // {
     //   provide: APP_FILTER,//bắt và xử lý mọi exception trên toàn ứng dụng, lỗi chung chung

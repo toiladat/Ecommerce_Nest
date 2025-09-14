@@ -8,7 +8,7 @@ import { google } from 'googleapis'
 import envConfig from 'src/shared/config'
 import { GoogleAuthStateType } from './auth.model'
 import { v4 as uuidv4 } from 'uuid'
-import { GoogleUserInfoError } from './error.model'
+import { GoogleUserInfoError } from './auth.error'
 @Injectable()
 export class GoogleService {
   private oauth2Client: OAuth2Client

@@ -33,7 +33,7 @@ import {
   TOTPAlreadyEnableException,
   TOTPNotEnableException,
   UnauthorizedAccessException,
-} from 'src/routes/auth/error.model'
+} from 'src/routes/auth/auth.error'
 
 @Injectable()
 export class AuthService {
